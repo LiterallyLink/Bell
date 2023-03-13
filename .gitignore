@@ -1,3 +1,4 @@
 node_modules/
-vscode/
+vscode_snippets/
 .env
+.eslintrc
