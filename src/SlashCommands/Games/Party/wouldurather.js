@@ -113,8 +113,8 @@ module.exports = {
 	},
 
 	drawBackground(ctx, client) {
-		client.canvas.fillBackground(ctx, '#5ebee4');
-		client.canvas.fillBackground(ctx, '#e43130');
+		client.canvas.drawRect(ctx, 0, 0, canvasWidth, halfCanvasHeight, '#5ebee4');
+		client.canvas.drawRect(ctx, 0, halfCanvasHeight, canvasWidth, canvasHeight, '#e43130');
 
 		const dividerWidth = 10;
 		client.canvas.drawRect(ctx, 0, halfCanvasHeight - dividerWidth, canvasWidth, dividerWidth * 2, '#303434');
