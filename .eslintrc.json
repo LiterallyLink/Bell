@@ -1,0 +1,7 @@
+{
+    "extends": "tesseract",
+    "rules": {
+        "no-process-env": "off",
+        "prefer-const": "off"
+      }
+}
