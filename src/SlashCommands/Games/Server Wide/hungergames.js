@@ -76,30 +76,94 @@ module.exports = {
 
 		const theReapingMessage = await application.followUp({
 			embeds: [theReapingEmbed],
-			files: [{ attachment: Buffer.from(theReapingCanvas.toBuffer()), name: 'theReaping.png' }],
+			files: [{ attachment: theReapingCanvas, name: 'theReaping.png' }],
 			components: [theReapingButtons]
 		});
 
-		let gameover = false;
-		
-
-		while (gameover) {
-
+		const filter = (i) => {
+			i.deferUpdate();
+			return i.user.id === application.user.id;
 		}
+
+		while (true) {
+			const { customId } = await theReapingMessage.awaitMessageComponent({ filter, ComponentType: ComponentType.Button, time: 300000 }).catch(() => false);;
+
+			if (customId === 'quit' || !customId) return theReapingMessage.delete().catch();
+
+			if (customId === 'proceed') break;
+
+			if (customId === 'randomize') {
+				tributes = client.utils.shuffleArray(tributes);
+
+				for (let i = 0; i < tributes.length; i++) {
+					tributes[i].district = this.assignDistrict(tributes, i + 1);
+				}
+
+				await this.generateReapingCanvas(client, tributes);
+				theReapingMessage.edit({ files: [{ attachment: theReapingCanvas, name: 'theReaping.png' }] });
+			}
+		}
+
+		let gameover = () => {
+			const tributesRemaining = tributes.filter(tribute => tribute.alive);
+			const [districtRemaining] = tributesRemaining;
+			const districtWon = tributesRemaining.every((tribute) => tribute.district === districtRemaining.district);
+
+			if (tributesRemaining.length === 1 || districtWon) return true;
+			
+			return false;
+		};
+
+		let bloodbath = true;
+		let sun = true;
+		let day = 0;
+		
+		do {
+			if (!bloodbath && sun) day++;
+
+			const currentEvent = bloodBath ? bloodbath : sun ? day : night;
+
+			const remainingTributes = tributes.filter(tribute => tribute.alive);
+
+			const deaths = [];
+			const results = [];
+			
+			this.eventTrigger(currentEvent, remainingTributes, results, deaths);
+
+			const eventText = bloodBath ? 'Bloodbath' : sun ? `Day ${day}`: `Night ${day}`;
+
+			for (let i = 0; i < results.length; i++) {
+				const eventEmbed = new EmbedBuilder()
+					.setTitle(`The Hunger Games - ${eventText}`)
+					.setFooter({ text: `${remainingTributes.length} Tributes Remaining. . .` })
+					.setColor('#5d5050');
+				await application.followUp({ embeds: [eventEmbed] });
+
+				await client.utils.sleep(5000);
+			}
+
+			if (deaths.length) {
+				const fallenTributesEmbed = new EmbedBuilder()
+					.setTitle('The Hunger Games - Fallen Tributes')
+					.setFooter('#5d5050')
+				const fallenTributesMessage = await application.followUp({ embeds: [fallenTributesEmbed] });
+			}
+	
+			if (!bloodbath) sun = !sun;
+
+			if (bloodbath) bloodbath = !bloodbath;
+		} while (gameover);
 	},
 
 	generateTributeData(tributes) {
 		const tributeData = [];
 
 		tributes.forEach(({ user }, i) => {
-			const iterator = i + 1;
-			const assignDistrict = () => tributes.length === 2 ? iterator : Math.ceil(iterator / 2);
-
 			const tributeObj = {
 				id: user.id,
 				username: user.username,
 				avatar: user.displayAvatarURL({ extension: 'png' }),
-				district: assignDistrict(),
+				district: this.assignDistrict(tributes, i + 1),
 				alive: true,
 				kills: [],
 				killedBy: null
@@ -109,6 +173,10 @@ module.exports = {
 		});
 
 		return tributeData;
+	},
+
+	assignDistrict(tributes, district) {
+		return tributes.length === 2 ? district : Math.ceil(district / 2);
 	},
 
 	async generateReapingCanvas(client, tributes) {
@@ -280,5 +348,9 @@ module.exports = {
 				yPos += avatarHeightMargin + avatarWidth;
 			}
 		}
+	},
+
+	eventTrigger() {
+
 	}
 };
