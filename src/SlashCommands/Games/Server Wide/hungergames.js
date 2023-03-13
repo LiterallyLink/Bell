@@ -79,6 +79,13 @@ module.exports = {
 			files: [{ attachment: Buffer.from(theReapingCanvas.toBuffer()), name: 'theReaping.png' }],
 			components: [theReapingButtons]
 		});
+
+		let gameover = false;
+		
+
+		while (gameover) {
+
+		}
 	},
 
 	generateTributeData(tributes) {
@@ -136,7 +143,7 @@ module.exports = {
 		ctx.font = '35px arial';
 		this.drawHeader(ctx, ['The Reaping']);
 
-		return canvas;
+		return Buffer.from(canvas.toBuffer());
 	},
 
 	async generateTributeImages(client, ctx, tributes, displayStatuses = false) {
