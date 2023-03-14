@@ -50,9 +50,9 @@ module.exports = {
 		.addUserOption(option => option.setName('tribute-24').setDescription('The 24th tribute.')),
 	async run({ client, application }) {
 		const selectedTributes = application.options._hoistedOptions.filter(option => option.type === 6).map(user => user);
-		const tributes = this.generateTributeData(selectedTributes);
+		let tributes = this.generateTributeData(selectedTributes);
 
-		const theReapingCanvas = await this.generateReapingCanvas(client, tributes);
+		let theReapingCanvas = await this.generateReapingCanvas(client, tributes);
 
 		const theReapingButtons = new ActionRowBuilder()
 			.addComponents(
@@ -73,86 +73,72 @@ module.exports = {
 		const theReapingEmbed = new EmbedBuilder()
 			.setImage('attachment://theReaping.png')
 			.setColor('#5d5050');
-
-		const theReapingMessage = await application.followUp({
-			embeds: [theReapingEmbed],
-			files: [{ attachment: theReapingCanvas, name: 'theReaping.png' }],
-			components: [theReapingButtons]
-		});
+		const theReapingMessage = await application.followUp({ embeds: [theReapingEmbed], files: [{ attachment: theReapingCanvas, name: 'theReaping.png' }], components: [theReapingButtons] });
 
 		const filter = (i) => {
 			i.deferUpdate();
 			return i.user.id === application.user.id;
-		}
+		};
 
-		while (true) {
-			const { customId } = await theReapingMessage.awaitMessageComponent({ filter, ComponentType: ComponentType.Button, time: 300000 }).catch(() => false);;
+		for (;;) {
+			const { customId } = await theReapingMessage.awaitMessageComponent({ filter, ComponentType: ComponentType.Button, time: 300000 }).catch(() => false);
 
-			if (customId === 'quit' || !customId) return theReapingMessage.delete().catch();
+			if (customId === 'delete' || !customId) {
+				return theReapingMessage.delete().catch();
+			}
 
 			if (customId === 'proceed') break;
 
 			if (customId === 'randomize') {
-				tributes = client.utils.shuffleArray(tributes);
+				tributes = client.utils.shuffle(tributes);
 
 				for (let i = 0; i < tributes.length; i++) {
 					tributes[i].district = this.assignDistrict(tributes, i + 1);
 				}
 
-				await this.generateReapingCanvas(client, tributes);
+				theReapingCanvas = await this.generateReapingCanvas(client, tributes);
 				theReapingMessage.edit({ files: [{ attachment: theReapingCanvas, name: 'theReaping.png' }] });
 			}
 		}
 
-		let gameover = () => {
-			const tributesRemaining = tributes.filter(tribute => tribute.alive);
-			const [districtRemaining] = tributesRemaining;
-			const districtWon = tributesRemaining.every((tribute) => tribute.district === districtRemaining.district);
+		let gameover = false;
 
-			if (tributesRemaining.length === 1 || districtWon) return true;
-			
-			return false;
-		};
-
-		let bloodbath = true;
+		let starting = true;
 		let sun = true;
-		let day = 0;
-		
-		do {
-			if (!bloodbath && sun) day++;
+		let dayCount = 0;
 
-			const currentEvent = bloodBath ? bloodbath : sun ? day : night;
+		const location = application.options.getString('location');
+		const { bloodbath, day, night } = require(`../../../../assets/JSON/HungergameEvents/${location}_events.json`);
+
+		do {
+			if (!starting && sun) dayCount++;
 
 			const remainingTributes = tributes.filter(tribute => tribute.alive);
+			const currentEvent = starting ? bloodbath : sun ? day : night;
 
 			const deaths = [];
 			const results = [];
-			
+
 			this.eventTrigger(currentEvent, remainingTributes, results, deaths);
 
-			const eventText = bloodBath ? 'Bloodbath' : sun ? `Day ${day}`: `Night ${day}`;
+			const eventText = `${starting ? 'Bloodbath' : sun ? `Day ${dayCount}` : `Night ${dayCount}`}`;
 
-			for (let i = 0; i < results.length; i++) {
-				const eventEmbed = new EmbedBuilder()
-					.setTitle(`The Hunger Games - ${eventText}`)
-					.setFooter({ text: `${remainingTributes.length} Tributes Remaining. . .` })
-					.setColor('#5d5050');
-				await application.followUp({ embeds: [eventEmbed] });
+			const eventEmbed = new EmbedBuilder()
+				.setTitle(`The Hunger Games - ${eventText}`)
+				.setColor('#5d5050');
 
-				await client.utils.sleep(5000);
+			for (const result of results) {
 			}
 
-			if (deaths.length) {
-				const fallenTributesEmbed = new EmbedBuilder()
-					.setTitle('The Hunger Games - Fallen Tributes')
-					.setFooter('#5d5050')
-				const fallenTributesMessage = await application.followUp({ embeds: [fallenTributesEmbed] });
-			}
-	
-			if (!bloodbath) sun = !sun;
+			// if (deaths.length) {
 
-			if (bloodbath) bloodbath = !bloodbath;
-		} while (gameover);
+			// }
+			await client.utils.sleep(5000);
+
+			if (!starting) sun = !sun;
+
+			if (starting) starting = !starting;
+		} while (!gameover);
 	},
 
 	generateTributeData(tributes) {
@@ -165,8 +151,7 @@ module.exports = {
 				avatar: user.displayAvatarURL({ extension: 'png' }),
 				district: this.assignDistrict(tributes, i + 1),
 				alive: true,
-				kills: [],
-				killedBy: null
+				kills: []
 			};
 
 			tributeData.push(tributeObj);
@@ -248,11 +233,11 @@ module.exports = {
 		for (let i = 0; i < headerText.length; i++) {
 			const { width, actualBoundingBoxAscent, alphabeticBaseline, actualBoundingBoxLeft } = ctx.measureText(headerText[i]);
 
-			ctx.fillStyle = '#232323';
-			const startingBoxXPos = canvasCenter - actualBoundingBoxLeft;
-			const endingBoxXPos = width;
+			const startingBoxXPos = canvasCenter - actualBoundingBoxLeft - alphabeticBaseline;
+			const endingBoxXPos = width + (alphabeticBaseline * 2);
 			const endingBoxYPos = actualBoundingBoxAscent + alphabeticBaseline;
 
+			ctx.fillStyle = '#232323';
 			ctx.fillRect(startingBoxXPos, startingBoxYPos, endingBoxXPos, endingBoxYPos);
 
 			ctx.strokeStyle = '#ffffff';
@@ -260,8 +245,9 @@ module.exports = {
 
 			startingBoxYPos += endingBoxYPos + alphabeticBaseline;
 
-			ctx.fillStyle = '#e4ae24';
 			textYPos += actualBoundingBoxAscent + (alphabeticBaseline * 2);
+
+			ctx.fillStyle = '#e4ae24';
 			ctx.fillText(headerText[i], textXPos, textYPos);
 		}
 	},
@@ -350,7 +336,30 @@ module.exports = {
 		}
 	},
 
-	eventTrigger() {
+	parseEvents(text, tributes) {
+		for (let i = 0; i < tributes.length < i++) {
 
+		}
+
+		return { results: result}
+	}
+
+	eventTrigger(events, remainingTributes, results, deaths) {
+		const tributes = new Set(remainingTributes);
+
+		for (const tribute of tributes) {
+			const filteredEvents = events.filter(event => event.tributes <= tributes.size && event.deaths.length < tributes.size);
+			const event = filteredEvents[Math.floor(Math.random() * filteredEvents.length)];
+
+			tributes.delete(tribute);
+
+			if (event.tributes === 1) {
+				if (event.deaths.length === 1) {
+					deaths.push(tribute);
+
+					tribute.alive = false;
+				}
+			}
+		}
 	}
 };
